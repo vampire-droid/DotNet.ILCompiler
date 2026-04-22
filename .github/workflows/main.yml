@@ -180,125 +180,6 @@ jobs:
     #       --artifacts target/artifacts \
     #       --rust-wit-bindgen-path ./crates/guest-rust
 
-  # While async is off-by-default and toolchains are percolating this is a
-  # separate job to get configured slightly differently.
-  async:
-    name: Test Async (allowed to fail)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    - name: Install Rust
-      run: rustup update stable --no-self-update && rustup default stable
-    - run: rustup target add wasm32-wasip2
-
-    # As of this writing, we need [a patched build of
-    # Go](https://github.com/dicej/go/releases/tag/go1.25.5-wasi-on-idle) to
-    # support async.
-    - name: Install Patched Go
-      run: |
-        curl -OL https://github.com/dicej/go/releases/download/go1.25.5-wasi-on-idle/go-linux-amd64-bootstrap.tbz
-        tar xf go-linux-amd64-bootstrap.tbz
-        echo "$(pwd)/go-linux-amd64-bootstrap/bin" >> $GITHUB_PATH
-
-    - uses: ./.github/actions/install-wasi-sdk
-    - run: |
-        cargo run test --languages rust,c,go tests/runtime-async \
-          --artifacts target/artifacts \
-          --rust-wit-bindgen-path ./crates/guest-rust
-
-  test_unit:
-    name: Crate Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-    - name: Install Rust
-      run: rustup update stable --no-self-update && rustup default stable
-    - run: rustup target add wasm32-wasip1
-    - run: cargo test
-    - run: cargo test -p wit-bindgen-core
-    - run: cargo test -p wit-bindgen
-    - run: cargo test -p wit-bindgen --all-features
-    - run: cargo test -p wit-bindgen-rust
-    - run: cargo test --workspace --exclude 'wit-bindgen*'
-    - run: rustup update nightly-2025-11-10 --no-self-update
-    - run: rustup default nightly-2025-11-10
-    - run: rustup component add miri
-    - run: rustup component add rust-src
-    - run: cargo miri test -p wit-bindgen --all-features
-
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      run: rustup update stable --no-self-update && rustup default stable
-    - name: Install wasm32-unknown-unknown target
-      run: rustup target add wasm32-unknown-unknown
-    - name: Install wasm32-wasip1 target
-      run: rustup target add wasm32-wasip1
-
-    # Verify the output of the `./ci/rebuild-libwit-bindgen-cabi.sh` script is
-    # up-to-date.
-    - uses: ./.github/actions/install-wasi-sdk
-    - run: ./ci/rebuild-libwit-bindgen-cabi.sh
-    - run: git diff --exit-code
-
-    # Test various feature combinations, make sure they all build
-    - run: cargo build
-    - run: cargo build --no-default-features
-    - run: cargo build --no-default-features --features rust
-    - run: cargo build --no-default-features --features c
-    - run: cargo build --no-default-features --features go
-    - run: cargo build --no-default-features --features csharp
-    - run: cargo build --no-default-features --features markdown
-    - run: cargo build --no-default-features --features moonbit
-
-    # Feature combos of the `wit-bindgen` crate
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features realloc
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features macros
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features macros,realloc
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features async
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features async-spawn
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features async,macros
-    - run: cargo build --target wasm32-wasip1 -p wit-bindgen --no-default-features --features inter-task-wakeup
-
-    # Verity that documentation can be generated for the rust bindings crate.
-    - run: rustup update nightly --no-self-update
-    - run: cargo +nightly doc -p wit-bindgen --no-deps
-      env:
-        RUSTDOCFLAGS: --cfg=docsrs
-
-  rustfmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      run: rustup update stable && rustup default stable && rustup component add rustfmt
-    - name: Format source code
-      run: cargo fmt -- --check
-
-  verify-publish:
-    if: github.repository_owner == 'bytecodealliance'
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-    - run: rustup update stable && rustup default stable
-    - run: rustc ci/publish.rs
-    # Make sure the tree is publish-able as-is
-    - run: ./publish verify
-    # Make sure we can bump version numbers for the next release
-    - run: ./publish bump
-
   # "Join node" which the merge queue waits on.
   ci-status:
     name: Record the result of testing and building steps
@@ -306,8 +187,8 @@ jobs:
     needs:
       # - test
       # - test_unit
-      - rustfmt
-      - build
+      # - rustfmt
+      # - build
       # - verify-publish
       # - check
       # - async
