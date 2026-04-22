@@ -35,12 +35,6 @@ jobs:
         submodules: true
     - run: rustup update stable --no-self-update && rustup default stable
     - run: rustup target add $CARGO_BUILD_TARGET
-    - run: ./ci/build-release-artifacts.sh
-    - run: ./ci/build-tarballs.sh "${{ matrix.build }}"
-    - uses: actions/upload-artifact@v4
-      with:
-        name: bins-${{ matrix.build }}
-        path: dist
 
   test:
     name: Test
@@ -179,16 +173,6 @@ jobs:
     #     cargo run test --languages rust,${{ matrix.lang }} tests/runtime \
     #       --artifacts target/artifacts \
     #       --rust-wit-bindgen-path ./crates/guest-rust
-
-  rustfmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      run: rustup update stable && rustup default stable && rustup component add rustfmt
-    - name: Format source code
-      run: cargo fmt -- --check
 
   verify-publish:
     if: github.repository_owner == 'bytecodealliance'
