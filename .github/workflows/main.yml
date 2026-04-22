@@ -15,26 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build wit-bindgen
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-        
-        - build: aarch64-macos
-          os: macos-latest
-          env:
-            CARGO_BUILD_TARGET: aarch64-apple-darwin
-            MACOSX_DEPLOYMENT_TARGET: 10.12
-
-    env: ${{ matrix.env }}
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-    - run: rustup update stable --no-self-update && rustup default stable
-    - run: rustup target add $CARGO_BUILD_TARGET
 
   test:
     name: Test
