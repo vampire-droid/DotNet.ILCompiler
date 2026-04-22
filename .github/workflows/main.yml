@@ -180,6 +180,59 @@ jobs:
     #       --artifacts target/artifacts \
     #       --rust-wit-bindgen-path ./crates/guest-rust
 
+  # While async is off-by-default and toolchains are percolating this is a
+  # separate job to get configured slightly differently.
+  async:
+    name: Test Async (allowed to fail)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Install Rust
+      run: rustup update stable --no-self-update && rustup default stable
+    - run: rustup target add wasm32-wasip2
+
+    # As of this writing, we need [a patched build of
+    # Go](https://github.com/dicej/go/releases/tag/go1.25.5-wasi-on-idle) to
+    # support async.
+    - name: Install Patched Go
+      run: |
+        curl -OL https://github.com/dicej/go/releases/download/go1.25.5-wasi-on-idle/go-linux-amd64-bootstrap.tbz
+        tar xf go-linux-amd64-bootstrap.tbz
+        echo "$(pwd)/go-linux-amd64-bootstrap/bin" >> $GITHUB_PATH
+
+    - uses: ./.github/actions/install-wasi-sdk
+    - run: |
+        cargo run test --languages rust,c,go tests/runtime-async \
+          --artifacts target/artifacts \
+          --rust-wit-bindgen-path ./crates/guest-rust
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust
+      run: rustup update stable && rustup default stable && rustup component add rustfmt
+    - name: Format source code
+      run: cargo fmt -- --check
+
+  verify-publish:
+    if: github.repository_owner == 'bytecodealliance'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - run: rustup update stable && rustup default stable
+    - run: rustc ci/publish.rs
+    # Make sure the tree is publish-able as-is
+    - run: ./publish verify
+    # Make sure we can bump version numbers for the next release
+    - run: ./publish bump
+
   # "Join node" which the merge queue waits on.
   ci-status:
     name: Record the result of testing and building steps
@@ -187,8 +240,8 @@ jobs:
     needs:
       # - test
       # - test_unit
-      # - rustfmt
-      # - build
+      - rustfmt
+      - build
       # - verify-publish
       # - check
       # - async
